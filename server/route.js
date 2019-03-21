@@ -1,4 +1,5 @@
 // post.model.js
+const fs = require('fs');
 
 const express = require('express');
 const postRoutes = express.Router();
@@ -26,8 +27,15 @@ postRoutes.route('/pippo').get(function (req, res) {
     // }
 
   //});
-  console.log("Called / with get function");
+  console.log("Called /pippo with get function");
   res.json({'answerFromServer':'ciao'});
+});
+
+// Send crystals info via json
+postRoutes.route('/getcrystals').get(function (req, res) {
+  console.log("Called /getcrystals with get function");
+  var obj = JSON.parse(fs.readFileSync('utils/EE_channels_border_map.json', 'utf8'));
+  res.json({'crystal_map':obj});
 });
 
 // Defined edit route
