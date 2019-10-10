@@ -1,8 +1,9 @@
 // post.model.js
 const fs = require('fs');
-
+const https = require('https');
 const express = require('express');
 const postRoutes = express.Router();
+const axios = require('axios');
 
 // Defined store route
 // postRoutes.route('/add').post(function (req, res) {
@@ -38,41 +39,30 @@ postRoutes.route('/getcrystals').get(function (req, res) {
   res.json({'crystal_map':obj});
 });
 
-// Defined edit route
-// postRoutes.route('/edit/:id').get(function (req, res) {
-//   let id = req.params.id;
-//   findById(id, function (err, post){
-//       if(err) {
-//         res.json(err);
-//       }
-//       res.json(post);
-//   });
-// });
+postRoutes.route('/getroot').post(function (req, res) {
 
-//  Defined update route
-// postRoutes.route('/update/:id').post(function (req, res) {
-//     findById(req.params.id, function(err, post) {
-//     if (!post)
-//       res.status(404).send("data is not found");
-//     else {
-//         post.title = req.body.title;
-//         post.body = req.body.body;
-//         post.save().then(() => {
-//           res.json('Update complete');
-//       })
-//       .catch(() => {
-//             res.status(400).send("unable to update the database");
-//       });
-//     }
-//   });
-// });
+  //console.log(req);
+  
+  var newLink = "https://cmsweb.cern.ch/dqm/online/jsonfairy/archive/327483/Global/Online/ALL/EcalEndcap/EEOccupancyTask/EEOT digi occupancy EE +";
+  
+  const httpsAgent = new https.Agent({
+    rejectUnauthorized: false, // (NOTE: this will disable client verification)
+    cert: fs.readFileSync("./utils/certificates/usercert.pem"),
+    key: fs.readFileSync("./utils/certificates/userkey.pem"),
+    passphrase: req.body.dqmpass
+  })
 
-// Defined delete | remove | destroy route
-// postRoutes.route('/delete/:id').delete(function (req, res) {
-//     findByIdAndRemove({_id: req.params.id}, function(err){
-//         if(err) res.json(err);
-//         else res.json('Successfully removed');
-//     });
-// });
+  axios.get(newLink,{httpsAgent})
+  .then(function (response) {
+    // console.log(response.data);
+    res.json({'data':response.data});
+  })
+  .catch(function (error) {
+    // console.log(error);
+    res.json({'data':'error'});
+  });
+  //res.json({'data':'error'});
+  
+});
 
 module.exports = postRoutes;

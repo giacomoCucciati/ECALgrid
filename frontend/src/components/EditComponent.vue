@@ -65,10 +65,29 @@
                 <input type="checkbox" id="showStripArea" checked>
                 Strip area
             </label>
-            <button class="button is-primary" id="loadHisto" onclick="addplot()" >Add histo</button>
+            <button class="button is-primary" id="loadHisto" @click="addplot()" >Add histo</button>
             <div>
-                DQM Link<input type="text" id="dqmLinkText">
+                Run number<input type="text" id="dqmLinkText" v-model="runNumber">
             </div>
+            <modal name="ask-password"
+                  :width="300"
+                  :height="130">
+              <div class="columns is-centered">
+                <div class="column is-8">
+                  <div class="field">
+                    <label class="label">Access to DQM:</label>
+                    <div class="control">
+                      <input class="input" type="password" placeholder="Password" id="n-password2" v-model="dqmpass">
+                    </div>
+                  </div>
+                  <div>
+                    <div class="button-set">
+                      <button class="button is-link" id="continue-btn" @click="continueAddPlot()">Continue</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </modal>
         </div>
         <div id="grid" class="column"></div>
     </div>
@@ -76,24 +95,27 @@
 
 <script>
   import * as d3 from "d3";
-
+  
+  // import $ from "jquery";
   export default {
 
     data () {
       return {
-        width: 10,
-        height: 10,
+        width: 6,
+        height: 6,
         original_crystals_map: [],
         modified_crystals_map: [],
         border_map: {},
-        grid: 0
+        grid: 0,
+        dqmpass: "",
+        runNumber: 327483 // Just a run for testing. It should be the actual run. 
       };
     },
 
     methods: {
     
       gridData() {
-        var startColor = 0x000000;
+        //var startColor = 0x000000;
         for (let i in this.original_crystals_map) {
           let crystal = this.original_crystals_map[i]
           if(crystal.side>0){
@@ -234,9 +256,65 @@
           .data(Object.keys(this.border_map))
           .style("stroke-width", (d) => { return this.border_map[d]['width']; })
           .style("stroke", (d) => { return this.border_map[d]['stroke']; })
+      },
+
+
+      addplot() {
+        this.$modal.show('ask-password');
+      },
+
+      continueAddPlot() {
+        // var newLink = "https://cmsweb.cern.ch/dqm/online/jsonfairy/archive/327483/Global/Online/ALL/EcalEndcap/EEOccupancyTask/EEOT digi occupancy EE +"
+        
+        this.axios.post("http://localhost:4000/posts/getroot", {dqmpass: this.dqmpass}).then((response) => {
+
+          if (response.data.data == 'error') {
+            return
+          }
+
+          var thejsonhist = response.data.data.hist
+
+          //var thejsonhist = JSON.parse(myhist)
+          let rows = thejsonhist.bins.content
+          var histomap = {};
+          var counter_rows = 0;
+          var histowidth = 0
+          var histoheight = 0
+          var counter_columns = 0;
+          var maxScaleVal = 0;
+
+          var nuberofpointsx = thejsonhist.xaxis.last.value / thejsonhist.xaxis.last.id
+          var nuberofpointsy = thejsonhist.yaxis.last.value / thejsonhist.yaxis.last.id
+          histowidth = this.width*nuberofpointsx;
+          histoheight = this.height*nuberofpointsy;
+          _.forEach(rows, function(row){
+            counter_columns = 0;
+            _.forEach(row, function(value){
+              if(value>maxScaleVal) maxScaleVal = value;
+              histomap[[(counter_columns * histowidth) +1,(counter_rows * histoheight) +1]] = value
+                counter_columns = counter_columns + 1;
+              });
+            counter_rows = counter_rows + 1;
+          }); 
+          
+          var colorScale1 = d3.scaleSequential(d3.interpolatePlasma).domain([0, maxScaleVal]);
+
+          // console.log(histomap)
+          // console.log(counter_columns,counter_rows)
+          _.forEach(this.modified_crystals_map, function(crystal) {
+            let histox = parseInt(crystal.x / histowidth)*histowidth+1
+            let histoy = parseInt(crystal.y / histoheight)*histoheight+1
+            crystal['histoval'] = histomap[[histox,histoy]]
+            crystal.bg_store = colorScale1(crystal.histoval)
+            crystal.bg = colorScale1(crystal.histoval)
+          })
+
+          this.grid.selectAll(".square").data(this.modified_crystals_map).style("fill", function(d) { return d.bg; })
+        })
+
+        this.$modal.hide('ask-password')
+        this.dqmpass = ""
       }
-
-
     },
 
     mounted () {
@@ -281,7 +359,7 @@
         
       }).catch(function (error) {
         // handle error
-        console.log(error);
+        console.error(error);
       }).then(function () {
         // always executed
       });
